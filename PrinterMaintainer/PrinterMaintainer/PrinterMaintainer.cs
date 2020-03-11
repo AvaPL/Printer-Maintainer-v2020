@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -7,51 +8,75 @@ namespace PrinterMaintainer
 {
     public class PrinterMaintainer
     {
-        public class Configuration
-        {
-            public int PrintToPrintTimeDays { get; set; }
-            public string PrintCommand { get; set; }
-        }
-
-        public Configuration Config { get; }
-        public DateTime LastPrintTime { get; }
+        private readonly Configuration config;
+        private readonly DateTime lastPrintTime;
+        private readonly string lastPrintTimeFilename;
 
         public PrinterMaintainer(string configFilename, string lastPrintTimeFilename)
         {
-            Config = ParseConfiguration(configFilename);
-            LastPrintTime = ParseLastPrintTime(lastPrintTimeFilename);
+            this.lastPrintTimeFilename = lastPrintTimeFilename;
+            config = ParseConfiguration(configFilename);
+            lastPrintTime = ParseLastPrintTime(lastPrintTimeFilename);
         }
 
-        private DateTime ParseLastPrintTime(string lastPrintTimeFilename)
+        private Configuration ParseConfiguration(string filename)
         {
-            string lastPrintTimeString = File.ReadAllText(lastPrintTimeFilename);
-            return DateTime.FromFileTime(long.Parse(lastPrintTimeString));
-        }
-
-        private Configuration ParseConfiguration(string configFilename)
-        {
-            string configYaml = File.ReadAllText(configFilename);
+            string configYaml = File.ReadAllText(filename);
             IDeserializer deserializer = new DeserializerBuilder()
                 .WithNamingConvention(PascalCaseNamingConvention.Instance).Build();
             return deserializer.Deserialize<Configuration>(configYaml);
         }
 
+        private DateTime ParseLastPrintTime(string filename)
+        {
+            string lastPrintTimeString = File.ReadAllText(filename);
+            return DateTime.FromFileTime(long.Parse(lastPrintTimeString));
+        }
+
+
         public bool ShouldPrintTestPage()
         {
-            //TODO: Implement.
-            return true;
+            TimeSpan timeSinceLastPrinting = DateTime.Now.Subtract(lastPrintTime);
+            return timeSinceLastPrinting.TotalDays > config.PrintToPrintTimeDays;
         }
 
         public void PrintTestPage()
         {
-            //TODO: Implement.
-            Console.Out.WriteLine("Printing test page...");
+            SavePrintTime();
+            ExecutePrintCommand();
+        }
+
+        private void SavePrintTime()
+        {
+            string nowString = DateTime.Now.ToFileTime().ToString();
+            File.WriteAllText(lastPrintTimeFilename, nowString);
+        }
+
+        private void ExecutePrintCommand()
+        {
+            Process process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    FileName = "cmd.exe",
+                    Arguments = "/C " + config.PrintCommand
+                }
+            };
+            process.Start();
         }
 
         public void DelayPrinting()
         {
-            //TODO: Implement.
-            Console.Out.WriteLine("Delaying printing...");
+            DateTime artificialPrintTime = DateTime.Now.AddDays(-config.PrintToPrintTimeDays / 2.0);
+            string artificialPrintTimeString = artificialPrintTime.ToFileTime().ToString();
+            File.WriteAllText(lastPrintTimeFilename, artificialPrintTimeString);
+        }
+
+        private class Configuration
+        {
+            public int PrintToPrintTimeDays { get; set; }
+            public string PrintCommand { get; set; }
         }
     }
 }
