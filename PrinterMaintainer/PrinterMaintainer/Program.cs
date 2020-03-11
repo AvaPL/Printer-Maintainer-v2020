@@ -17,14 +17,21 @@ namespace PrinterMaintainer
             {
                 PrinterMaintainer printerMaintainer = new PrinterMaintainer(ConfigFilename, LastPrintTimeFilename);
                 if (printerMaintainer.ShouldPrintTestPage())
-                {
-                    DialogResult result = MaintainerMessages.ShowQuestion();
-                }
+                    AskForPrinting(printerMaintainer);
             }
             catch (Exception e)
             {
                 MaintainerMessages.ShowError(e.ToString());
             }
+        }
+
+        private static void AskForPrinting(PrinterMaintainer printerMaintainer)
+        {
+            DialogResult result = MaintainerMessages.ShowQuestion();
+            if (result == DialogResult.Yes)
+                printerMaintainer.PrintTestPage();
+            else if (result == DialogResult.No)
+                printerMaintainer.DelayPrinting();
         }
     }
 }
